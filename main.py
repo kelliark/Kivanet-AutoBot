@@ -7,8 +7,12 @@ from fake_useragent import UserAgent
 from termcolor import colored
 
 def load_proxies(file_path="proxies.txt"):
-    with open(file_path, "r") as f:
-        return [line.strip() for line in f if line.strip()]
+    try:
+        with open(file_path, "r") as f:
+            proxies = [line.strip() for line in f if line.strip()]
+            return proxies if proxies else [None]  # If empty, use direct connection
+    except FileNotFoundError:
+        return [None]  # Proceed without proxies if file is missing
 
 def load_accounts(file_path="accounts.txt"):
     accounts = []
@@ -30,8 +34,10 @@ def hash_password(password):
     return hashlib.md5(password.encode()).hexdigest()
 
 def get_proxy_ip(proxy):
+    if not proxy:
+        return "Direct Connection"
     try:
-        proxies = {"http": proxy, "https": proxy} if proxy else None
+        proxies = {"http": proxy, "https": proxy}
         response = requests.get("http://ip-api.com/json", proxies=proxies, timeout=5)
         if response.status_code == 200:
             return response.json().get("query", "Unknown")
@@ -42,8 +48,8 @@ def get_proxy_ip(proxy):
 def send_request_with_proxy(url, headers, proxies, method="GET", data=None):
     for _ in range(len(proxies)):
         proxy = random.choice(proxies)
+        proxy_config = {"http": proxy, "https": proxy} if proxy else None
         try:
-            proxy_config = {"http": proxy, "https": proxy}
             if method == "POST":
                 response = requests.post(url, headers=headers, json=data, proxies=proxy_config, timeout=10)
             else:
@@ -52,7 +58,8 @@ def send_request_with_proxy(url, headers, proxies, method="GET", data=None):
             if response.status_code == 200:
                 return response
         except requests.RequestException:
-            print(colored(f"Proxy failed: {proxy}, switching to another proxy...", "red"))
+            if proxy:
+                print(colored(f"Proxy failed: {proxy}, switching to another proxy...", "red"))
     return None
 
 def get_bearer_token(email, password, proxies):
@@ -108,7 +115,8 @@ def mine_tokens(tokens, proxies):
     while True:
         print(colored("=== Starting Mining Process ===", "cyan"))
         for token in tokens:
-            proxy_ip = get_proxy_ip(random.choice(proxies))
+            proxy = random.choice(proxies)
+            proxy_ip = get_proxy_ip(proxy)
             nickname = fetch_user_info(token, proxies)
             balance = fetch_balance(token, proxies)
             print(colored(f"User: {nickname} | Balance: {balance} Kiva | Proxy IP: {proxy_ip}", "yellow"))
