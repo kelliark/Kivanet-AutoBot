@@ -1,0 +1,3 @@
+// one per line
+email:password
+email1:password2
